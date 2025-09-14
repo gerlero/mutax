@@ -1,0 +1,72 @@
+[build-system]
+requires = ["uv_build>=0.7.2,<0.9"]
+build-backend = "uv_build"
+
+[project]
+name = "mutax"
+version = "0.1.0"
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
+authors = [{ name = "Gabriel S. Gerlero", email = "ggerlero@cimec.unl.edu.ar" }]
+description = "Evolutionary optimization algorithms in JAX"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "equinox>=0.12.1,<0.14",
+    "jax>=0.5,<0.7",
+]
+
+[dependency-groups]
+lint = ["ruff"]
+typing = ["ty"]
+test = [
+    "pytest>=8,<9",
+    "pytest-cov",
+]
+docs = [
+    "mkdocs>=1.6.1,<2",
+    "mkdocs-material>=9.6.12,<10",
+    "mkdocstrings[python]>=0.29.1,<0.31",
+]
+dev = [
+    {include-group = "lint"},
+    {include-group = "typing"},
+    {include-group = "test"},
+    {include-group = "docs"},
+]
+
+[project.urls]
+Homepage = "https://github.com/gerlero/mutax"
+Repository = "https://github.com/gerlero/mutax"
+Documentation = "https://mutax.readthedocs.io"
+
+[tool.uv.build-backend]
+module-root = "."
+
+[tool.ruff.lint]
+extend-select = ["ALL"]
+extend-ignore = [
+    "ANN401",
+    "COM812",
+    "D105",
+    "PLR2004",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

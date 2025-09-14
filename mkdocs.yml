@@ -1,0 +1,27 @@
+theme:
+    name: material
+
+site_name: Mutax
+site_description: The documentation for the Mutax software library.
+site_author: Gabriel S. Gerlero
+site_url: https://mutax.readthedocs.io/
+
+repo_url: https://github.com/gerlero/mutax
+repo_name: gerlero/mutax
+
+strict: true
+
+plugins:
+    - search
+    - mkdocstrings:
+        handlers:
+            python:
+                options:
+                    show_if_no_docstring: true
+                    show_root_heading: true
+                    show_signature_annotations: true
+                    show_symbol_type_toc: true
+
+
+nav:
+    - 'index.md'

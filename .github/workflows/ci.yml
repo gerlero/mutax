@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+    - name: Lint with Ruff
+      uses: astral-sh/ruff-action@v3
+    - name: Format with Ruff
+      uses: astral-sh/ruff-action@v3
+      with:
+        args: 'format --check'
+
+  typing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: pyproject.toml
+    - name: Check types with ty
+      run: |
+        uv run ty check
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+      fail-fast: false
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+    - name: Install test dependencies
+      run: uv sync
+    - name: Test with pytest
+      run: uv run pytest --cov=mutax --cov-report xml
+    - name: Upload code coverage results to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+    - name: Check package build
+      run: uv build
