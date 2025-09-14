@@ -33,6 +33,8 @@ def differential_evolution(  # noqa: PLR0913, PLR0915
     key: jax.Array,
     maxiter: int = 1_000,
     popsize: int = 15,
+    tol: float = 0.01,
+    atol: float = 0,
     mutation: float | tuple[float, float] = (0.5, 1.0),
     recombination: float = 0.8,
     updating: Literal["immediate", "deferred"] = "immediate",
@@ -52,6 +54,8 @@ def differential_evolution(  # noqa: PLR0913, PLR0915
     - `maxiter`: The maximum number of generations to evolve the population.
     - `popsize`: Multiplier for setting the total population size. The population size
     is determined by `popsize * dim`.
+    - `tol`: Relative tolerance for convergence.
+    - `atol`: Absolute tolerance for convergence.
     - `mutation`: A float or a tuple of two floats specifying the mutation factor. If a
     tuple is provided, the mutation factor is sampled uniformly from this range for each
     mutation.
@@ -151,19 +155,27 @@ def differential_evolution(  # noqa: PLR0913, PLR0915
         msg = "updating must be 'immediate' or 'deferred'"
         raise ValueError(msg)
 
-    pop, fitness, key = jax.lax.fori_loop(
-        0, maxiter, lambda _, val: evolve(*val), (pop, fitness, key)
+    def converged(fitness: jax.Array) -> jax.Array:
+        return jnp.all(jnp.isfinite(fitness)) & (
+            jnp.std(fitness) <= atol + tol * jnp.abs(jnp.mean(fitness))
+        )
+
+    nit, pop, fitness, key = jax.lax.while_loop(
+        lambda val: (val[0] < maxiter) & (~converged(val[2])),
+        lambda val: (val[0] + 1, *evolve(val[1], val[2], val[3])),
+        (0, pop, fitness, key),
     )
 
     best_idx = jnp.argmin(fitness)
+    success = converged(fitness)
     return OptimizeResults(
         x=pop[best_idx],
         fun=fitness[best_idx],
-        success=True,
-        status=0,
+        success=success,
+        status=(~success).astype(int),
         jac=jnp.array(0),
         hess_inv=None,
-        nfev=maxiter * popsize,
+        nfev=nit * popsize,
         njev=jnp.array(0),
-        nit=maxiter,
+        nit=nit,
     )
