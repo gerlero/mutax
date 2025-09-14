@@ -31,3 +31,4 @@ def test_differential_evolution(updating: Literal["immediate", "deferred"]) -> N
     assert result.status == 0
     assert result.x == pytest.approx([1.0, 1.0])
     assert result.fun == pytest.approx(0.0)
+    assert result.nit < 200
