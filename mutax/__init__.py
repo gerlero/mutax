@@ -8,7 +8,6 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.scipy.optimize
-from jax.sharding import Mesh, NamedSharding
 from jax.sharding import PartitionSpec as P
 
 OptimizeResults = jax.scipy.optimize.OptimizeResults
@@ -115,17 +114,28 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         updating = "deferred"
 
     if workers > 1:
-        popsize += workers - (popsize % workers)
-        mesh = Mesh(jax.devices()[:workers], ("i",))
+        if popsize < workers:
+            workers = popsize
+        else:
+            popsize += (workers - popsize % workers) % workers
 
-    # Initialize population
+        mesh = jax.make_mesh((workers,), ("d",))
+
+        def pmapped_func(x: jax.Array) -> jax.Array:
+            return jax.shard_map(
+                lambda x: jax.vmap(func)(x.reshape(-1, dim)),
+                mesh=mesh,
+                in_specs=P("d"),
+                out_specs=P("d"),
+                check_vma=False,
+            )(x.flatten()).reshape(popsize)
+
     key, subkey = jax.random.split(key)
     pop = jax.random.uniform(subkey, (popsize, dim), minval=lower, maxval=upper)
-    if workers > 1:
-        pop = jax.device_put(pop, NamedSharding(mesh, P("i", None)))
     if x0 is not None:
         pop = pop.at[0].set(jnp.asarray(x0))
-    fitness: jax.Array = jax.vmap(func)(pop)
+
+    fitness = pmapped_func(pop) if workers > 1 else jax.vmap(func)(pop)
 
     def make_trial(
         pop: jax.Array, i: int, key: jax.Array
@@ -194,7 +204,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
                 jnp.arange(popsize), keys
             )
             key = keys[-1]
-            f_trials = jax.vmap(func)(trials)
+            f_trials = pmapped_func(trials) if workers > 1 else jax.vmap(func)(trials)
             better = f_trials < fitness
             pop = jnp.where(better[:, None], trials, pop)
             fitness = jnp.where(better, f_trials, fitness)
