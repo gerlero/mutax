@@ -21,6 +21,23 @@ Fully [`jax.jit`](https://docs.jax.dev/en/latest/_autosummary/jax.jit.html#jax.j
 pip install mutax
 ```
 
+## Quick start
+
+```python
+import jax
+import jax.numpy as jnp
+from mutax import differential_evolution
+
+def cost_function(x):
+    return jnp.sum(x**2)
+
+bounds = [(-5, 5)] * 10  # 10-dimensional problem with bounds for each dimension
+
+result = differential_evolution(cost_function, bounds, key=jax.random.key(0))
+print("Best solution:", result.x)
+print("Objective value:", result.fun)
+```
+
 ## Documentation
 
-API documentation is available at [Read the Docs](https://mutax.readthedocs.io/).
+The documentation is available at [Read the Docs](https://mutax.readthedocs.io/).
