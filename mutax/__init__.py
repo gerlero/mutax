@@ -210,9 +210,9 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         )
 
     nit, pop, fitness, key = jax.lax.while_loop(
-        lambda val: (val[0] < maxiter) & (~converged(val[2])),
+        lambda val: (val[0] <= maxiter) & (~converged(val[2])),
         lambda val: (val[0] + 1, *evolve(val[1], val[2], val[3])),
-        (0, pop, fitness, key),
+        (1, pop, fitness, key),
     )
 
     best_idx = jnp.argmin(fitness)
