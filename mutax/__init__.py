@@ -105,7 +105,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         )
         raise ValueError(msg)
 
-    if workers > 1 and updating != "deferred":
+    if workers > 1 and updating == "immediate":
         msg = (
             "differential_evolution: the 'workers' keyword has overridden "
             "updating='immediate' to updating='deferred'"
