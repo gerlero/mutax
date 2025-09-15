@@ -26,12 +26,18 @@ def test_rosenbrock() -> None:
 
 @pytest.mark.parametrize("updating", ["immediate", "deferred"])
 @pytest.mark.parametrize("workers", [1, 2, -1])
+@pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
 def test_differential_evolution(
-    updating: Literal["immediate", "deferred"], workers: int
+    updating: Literal["immediate", "deferred"], workers: int, x0: jax.Array | None
 ) -> None:
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     result = differential_evolution(
-        rosenbrock, bounds, key=jax.random.key(0), updating=updating, workers=workers
+        rosenbrock,
+        bounds,
+        key=jax.random.key(0),
+        updating=updating,
+        workers=workers,
+        x0=x0,
     )
     assert result.success
     assert result.status == 0

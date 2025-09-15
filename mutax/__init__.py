@@ -42,6 +42,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     recombination: float = 0.8,
     updating: Literal["immediate", "deferred"] = "immediate",
     workers: int = 1,
+    x0: jax.Array | None = None,
 ) -> OptimizeResults:
     """Find the global minimum of a multivariate function.
 
@@ -70,6 +71,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     evaluated.
     - `workers`: Number of parallel workers to use for evaluating the objective
     function. If set to -1, uses all available JAX devices.
+    - `x0`: Optional initial guess.
 
     **Returns:**
     An `OptimizeResults` object containing the optimization results.
@@ -121,6 +123,8 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     pop = jax.random.uniform(subkey, (popsize, dim), minval=lower, maxval=upper)
     if workers > 1:
         pop = jax.device_put(pop, NamedSharding(mesh, P("i", None)))
+    if x0 is not None:
+        pop = pop.at[0].set(jnp.asarray(x0))
     fitness: jax.Array = jax.vmap(func)(pop)
 
     def make_trial(
