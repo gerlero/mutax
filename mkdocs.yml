@@ -23,5 +23,10 @@ plugins:
                     show_symbol_type_toc: true
 
 
+markdown_extensions:
+    - admonition
+    - pymdownx.details
+    - pymdownx.superfences
+
 nav:
     - 'index.md'

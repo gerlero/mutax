@@ -1,5 +1,6 @@
 """Evolutionary optimization algorithms in JAX."""
 
+import warnings
 from collections.abc import Callable
 from typing import Literal
 
@@ -7,6 +8,8 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.scipy.optimize
+from jax.sharding import Mesh, NamedSharding
+from jax.sharding import PartitionSpec as P
 
 OptimizeResults = jax.scipy.optimize.OptimizeResults
 """Object holding optimization results.
@@ -25,7 +28,7 @@ OptimizeResults = jax.scipy.optimize.OptimizeResults
 
 
 @eqx.filter_jit
-def differential_evolution(  # noqa: PLR0913, PLR0915
+def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     func: Callable[[jax.Array], jax.Array],
     /,
     bounds: jax.Array,
@@ -38,6 +41,7 @@ def differential_evolution(  # noqa: PLR0913, PLR0915
     mutation: float | tuple[float, float] = (0.5, 1.0),
     recombination: float = 0.8,
     updating: Literal["immediate", "deferred"] = "immediate",
+    workers: int = 1,
 ) -> OptimizeResults:
     """Find the global minimum of a multivariate function.
 
@@ -64,6 +68,8 @@ def differential_evolution(  # noqa: PLR0913, PLR0915
     "deferred". "immediate" updates individuals as soon as a better trial vector is
     found, while "deferred" updates the population after all trial vectors have been
     evaluated.
+    - `workers`: Number of parallel workers to use for evaluating the objective
+    function. If set to -1, uses all available JAX devices.
 
     **Returns:**
     An `OptimizeResults` object containing the optimization results.
@@ -73,9 +79,42 @@ def differential_evolution(  # noqa: PLR0913, PLR0915
     upper = jnp.array([b[1] for b in bounds])
     popsize *= dim
 
+    if workers < 1 and workers != -1:
+        msg = "workers must be a positive integer or -1"
+        raise ValueError(msg)
+    if workers == -1:
+        workers = jax.local_device_count()
+        if workers == 1:
+            msg = (
+                "differential_evolution: workers was set to -1 (use all devices), but "
+                "only a single JAX device was found.\nIf running on CPU, see the "
+                "mutax documentation for how to enable parallelism."
+            )
+            warnings.warn(msg, UserWarning, stacklevel=2)
+    elif workers > jax.local_device_count():
+        msg = (
+            f"workers was set to {workers}, but only {jax.local_device_count()}"
+            " JAX devices exist"
+        )
+        raise ValueError(msg)
+
+    if workers > 1 and updating != "deferred":
+        msg = (
+            "differential_evolution: the 'workers' keyword has overridden "
+            "updating='immediate' to updating='deferred'"
+        )
+        warnings.warn(msg, UserWarning, stacklevel=2)
+        updating = "deferred"
+
+    if workers > 1:
+        popsize += workers - (popsize % workers)
+        mesh = Mesh(jax.devices()[:workers], ("i",))
+
     # Initialize population
     key, subkey = jax.random.split(key)
     pop = jax.random.uniform(subkey, (popsize, dim), minval=lower, maxval=upper)
+    if workers > 1:
+        pop = jax.device_put(pop, NamedSharding(mesh, P("i", None)))
     fitness: jax.Array = jax.vmap(func)(pop)
 
     def make_trial(
