@@ -73,6 +73,12 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
 
     **Returns:**
     An `OptimizeResults` object containing the optimization results.
+
+    **Reference:**
+
+    R. Storn and K. Price, “Differential Evolution - A Simple and Efficient Heuristic
+    for global Optimization over Continuous Spaces,” Journal of Global Optimization,
+    vol. 11, no. 4, pp. 341-359, Dec. 1997, doi: 10.1023/a:1008202821328.
     """
     dim = len(bounds)
     lower = jnp.array([b[0] for b in bounds])
