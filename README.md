@@ -2,7 +2,7 @@
 
 **[SciPy-like](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html) differential evolution for [JAX](https://github.com/jax-ml/jax)**
 
-Fully [`jax.jit`](https://docs.jax.dev/en/latest/_autosummary/jax.jit.html#jax.jit)ted optimization of any JAX-compatible function
+Fully [`jax.jit`](https://docs.jax.dev/en/latest/_autosummary/jax.jit.html#jax.jit)ted optimization of any JAX-compatible function. Serial and parallel execution on CPU, GPU, and TPU.
 
 [![Documentation](https://img.shields.io/readthedocs/mutax)](https://mutax.readthedocs.io/)
 [![CI](https://github.com/gerlero/mutax/actions/workflows/ci.yml/badge.svg)](https://github.com/gerlero/mutax/actions/workflows/ci.yml)
