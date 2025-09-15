@@ -39,6 +39,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     atol: float = 0,
     mutation: float | tuple[float, float] = (0.5, 1.0),
     recombination: float = 0.8,
+    disp: bool = False,
     updating: Literal["immediate", "deferred"] = "immediate",
     workers: int = 1,
     x0: jax.Array | None = None,
@@ -64,6 +65,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     tuple is provided, the mutation factor is sampled uniformly from this range for each
     mutation.
     - `recombination`: A float in [0, 1] specifying the recombination probability.
+    - `disp`: Whether to print progress messages at each iteration.
     - `updating`: Strategy for updating the population. Can be either "immediate" or
     "deferred". "immediate" updates individuals as soon as a better trial vector is
     found, while "deferred" updates the population after all trial vectors have been
@@ -175,9 +177,16 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     if updating == "immediate":
 
         def evolve(
-            pop: jax.Array, fitness: jax.Array, key: jax.Array
-        ) -> tuple[jax.Array, jax.Array, jax.Array]:
-            def step(
+            nit: int, pop: jax.Array, fitness: jax.Array, key: jax.Array
+        ) -> tuple[int, jax.Array, jax.Array, jax.Array]:
+            if disp:
+                jax.debug.print(
+                    "differential_evolution step {nit}: f(x)={fmin}",
+                    nit=nit,
+                    fmin=jnp.min(fitness),
+                )
+
+            def evolve_one(
                 i: int, carry: tuple[jax.Array, jax.Array, jax.Array]
             ) -> tuple[jax.Array, jax.Array, jax.Array]:
                 pop, fitness, key = carry
@@ -191,14 +200,23 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
 
                 return pop, fitness, key
 
-            pop, fitness, key = jax.lax.fori_loop(0, popsize, step, (pop, fitness, key))
-            return pop, fitness, key
+            pop, fitness, key = jax.lax.fori_loop(
+                0, popsize, evolve_one, (pop, fitness, key)
+            )
+            return nit + 1, pop, fitness, key
 
     elif updating == "deferred":
 
         def evolve(
-            pop: jax.Array, fitness: jax.Array, key: jax.Array
-        ) -> tuple[jax.Array, jax.Array, jax.Array]:
+            nit: int, pop: jax.Array, fitness: jax.Array, key: jax.Array
+        ) -> tuple[int, jax.Array, jax.Array, jax.Array]:
+            if disp:
+                jax.debug.print(
+                    "differential_evolution step {nit}: f(x)={fmin}",
+                    nit=nit,
+                    fmin=jnp.min(fitness),
+                )
+
             keys = jax.random.split(key, popsize)
             trials, keys = jax.vmap(lambda i, k: make_trial(pop, i, k))(
                 jnp.arange(popsize), keys
@@ -208,7 +226,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
             better = f_trials < fitness
             pop = jnp.where(better[:, None], trials, pop)
             fitness = jnp.where(better, f_trials, fitness)
-            return pop, fitness, key
+            return nit + 1, pop, fitness, key
 
     else:
         msg = "updating must be 'immediate' or 'deferred'"
@@ -221,7 +239,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
 
     nit, pop, fitness, key = jax.lax.while_loop(
         lambda val: (val[0] <= maxiter) & (~converged(val[2])),
-        lambda val: (val[0] + 1, *evolve(val[1], val[2], val[3])),
+        lambda val: evolve(*val),
         (1, pop, fitness, key),
     )
 
