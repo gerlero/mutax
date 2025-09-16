@@ -24,17 +24,22 @@ def test_rosenbrock() -> None:
     assert rosenbrock(x3) == 100.0
 
 
+@pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
 @pytest.mark.parametrize("updating", ["immediate", "deferred"])
 @pytest.mark.parametrize("workers", [1, 2, -1])
 @pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
 def test_differential_evolution(
-    updating: Literal["immediate", "deferred"], workers: int, x0: jax.Array | None
+    strategy: Literal["rand1bin", "best1bin"],
+    updating: Literal["immediate", "deferred"],
+    workers: int,
+    x0: jax.Array | None,
 ) -> None:
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     result = differential_evolution(
         rosenbrock,
         bounds,
         key=jax.random.key(0),
+        strategy=strategy,
         updating=updating,
         workers=workers,
         x0=x0,

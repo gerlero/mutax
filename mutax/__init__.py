@@ -33,6 +33,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     bounds: jax.Array,
     *,
     key: jax.Array,
+    strategy: Literal["rand1bin", "best1bin"] = "best1bin",
     maxiter: int = 1_000,
     popsize: int = 15,
     tol: float = 0.01,
@@ -56,6 +57,9 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     - `bounds`: A 2D array specifying the lower and upper bounds for each dimension of
     the input space.
     - `key`: A JAX random key for stochastic operations.
+    - `strategy`: The differential evolution strategy to use. Can be either "rand1bin"
+    or "best1bin". The "rand1bin" strategy uses a randomly selected population member as
+    the base vector, while "best1bin" uses the best population member found so far.
     - `maxiter`: The maximum number of generations to evolve the population.
     - `popsize`: Multiplier for setting the total population size. The population size
     is determined by `popsize * dim`.
@@ -151,29 +155,66 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     fitness = pmapped_func(pop) if workers > 1 else jax.vmap(func)(pop)
 
     def make_trial(
-        pop: jax.Array, i: int, key: jax.Array
+        pop: jax.Array, fitness: jax.Array, i: int, key: jax.Array
     ) -> tuple[jax.Array, jax.Array]:
         key, subkey = jax.random.split(key)
 
-        # Select three distinct indices from 0..pop_size-1 excluding i
-        idxs = jnp.arange(popsize)
-        idxs = jnp.where(idxs == i, popsize, idxs)
-        idx_perm = jax.random.permutation(subkey, idxs)
-        r1, r2, r3 = idx_perm[:3]
-        r1 = jnp.where(r1 == popsize, idx_perm[3], r1)
-        r2 = jnp.where(r2 == popsize, idx_perm[4], r2)
-        r3 = jnp.where(r3 == popsize, idx_perm[5], r3)
+        if strategy == "best1bin":
+            # Use best member as base vector
+            best_idx = jnp.argmin(fitness)
 
-        # Mutation
-        try:
-            mut_lower, mut_upper = mutation  # ty: ignore[not-iterable]
-        except TypeError:
-            mut_val = mutation
+            # Select two distinct indices from 0..pop_size-1 excluding i and best_idx
+            idxs = jnp.arange(popsize)
+            idxs = jnp.where(idxs == i, popsize, idxs)
+            idxs = jnp.where(idxs == best_idx, popsize + 1, idxs)
+            idx_perm = jax.random.permutation(subkey, idxs)
+            r1, r2 = idx_perm[:2]
+            r1 = jnp.where(r1 == popsize, idx_perm[2], r1)
+            r1 = jnp.where(r1 == popsize + 1, idx_perm[3], r1)
+            r2 = jnp.where(r2 == popsize, idx_perm[4], r2)
+            r2 = jnp.where(r2 == popsize + 1, idx_perm[5], r2)
+
+            # Mutation
+            try:
+                mut_lower, mut_upper = mutation  # ty: ignore[not-iterable]
+            except TypeError:
+                mut_val = mutation
+            else:
+                key, subkey = jax.random.split(key)
+                mut_val = jax.random.uniform(
+                    subkey, (), minval=mut_lower, maxval=mut_upper
+                )
+
+            mutant = pop[best_idx] + mut_val * (pop[r1] - pop[r2])
+
+        elif strategy == "rand1bin":
+            # Use random member as base vector
+            # Select three distinct indices from 0..pop_size-1 excluding i
+            idxs = jnp.arange(popsize)
+            idxs = jnp.where(idxs == i, popsize, idxs)
+            idx_perm = jax.random.permutation(subkey, idxs)
+            r1, r2, r3 = idx_perm[:3]
+            r1 = jnp.where(r1 == popsize, idx_perm[3], r1)
+            r2 = jnp.where(r2 == popsize, idx_perm[4], r2)
+            r3 = jnp.where(r3 == popsize, idx_perm[5], r3)
+
+            # Mutation
+            try:
+                mut_lower, mut_upper = mutation  # ty: ignore[not-iterable]
+            except TypeError:
+                mut_val = mutation
+            else:
+                key, subkey = jax.random.split(key)
+                mut_val = jax.random.uniform(
+                    subkey, (), minval=mut_lower, maxval=mut_upper
+                )
+
+            mutant = pop[r1] + mut_val * (pop[r2] - pop[r3])
+
         else:
-            key, subkey = jax.random.split(key)
-            mut_val = jax.random.uniform(subkey, (), minval=mut_lower, maxval=mut_upper)
+            msg = f"Unrecognized strategy '{strategy}'"
+            raise ValueError(msg)
 
-        mutant = pop[r1] + mut_val * (pop[r2] - pop[r3])
         mutant = jnp.clip(mutant, lower, upper)
 
         # Crossover
@@ -201,7 +242,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
                 i: int, carry: tuple[jax.Array, jax.Array, jax.Array]
             ) -> tuple[jax.Array, jax.Array, jax.Array]:
                 pop, fitness, key = carry
-                trial, key = make_trial(pop, i, key)
+                trial, key = make_trial(pop, fitness, i, key)
 
                 # Selection
                 f_trial = func(trial)
@@ -229,7 +270,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
                 )
 
             keys = jax.random.split(key, popsize)
-            trials, keys = jax.vmap(lambda i, k: make_trial(pop, i, k))(
+            trials, keys = jax.vmap(lambda i, k: make_trial(pop, fitness, i, k))(
                 jnp.arange(popsize), keys
             )
             key = keys[-1]
