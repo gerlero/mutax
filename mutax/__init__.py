@@ -132,8 +132,19 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
                 check_vma=False,
             )(x.flatten()).reshape(popsize)
 
+    # Initialize population (Latin hypercube sampling)
+    segsize = 1.0 / popsize
     key, subkey = jax.random.split(key)
-    pop = jax.random.uniform(subkey, (popsize, dim), minval=lower, maxval=upper)
+    pop = lower + (upper - lower) * jnp.stack(
+        jax.vmap(
+            lambda k: (
+                segsize * jax.random.uniform(k, (popsize,))
+                + jnp.linspace(0.0, 1.0, popsize, endpoint=False)
+            )[jax.random.permutation(k, popsize)]
+        )(jax.random.split(subkey, dim)),
+        axis=1,
+    )
+
     if x0 is not None:
         pop = pop.at[0].set(jnp.asarray(x0))
 
