@@ -125,16 +125,12 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         else:
             popsize += (workers - popsize % workers) % workers
 
-        mesh = jax.make_mesh((workers,), ("d",))
-
-        def pmapped_func(x: jax.Array) -> jax.Array:
-            return jax.shard_map(
-                lambda x: jax.vmap(func)(x.reshape(-1, dim)),
-                mesh=mesh,
-                in_specs=P("d"),
-                out_specs=P("d"),
-                check_vma=False,
-            )(x.flatten()).reshape(popsize)
+        pmapped_func = jax.shard_map(
+            jax.vmap(func),
+            mesh=jax.make_mesh((workers,), ("d",)),
+            in_specs=P("d"),
+            out_specs=P("d"),
+        )
 
     # Initialize population (Latin hypercube sampling)
     segsize = 1.0 / popsize
