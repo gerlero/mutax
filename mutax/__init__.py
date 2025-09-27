@@ -8,7 +8,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.scipy.optimize
-from jax.sharding import PartitionSpec as P
+from parajax import pvmap
 
 OptimizeResults = jax.scipy.optimize.OptimizeResults
 """Object holding optimization results.
@@ -95,23 +95,8 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     if workers < 1 and workers != -1:
         msg = "workers must be a positive integer or -1"
         raise ValueError(msg)
-    if workers == -1:
-        workers = jax.local_device_count()
-        if workers == 1:
-            msg = (
-                "differential_evolution: workers was set to -1 (use all devices), but "
-                "only a single JAX device was found.\nIf running on CPU, see the "
-                "mutax documentation for how to enable parallelism."
-            )
-            warnings.warn(msg, UserWarning, stacklevel=2)
-    elif workers > jax.local_device_count():
-        msg = (
-            f"workers was set to {workers}, but only {jax.local_device_count()}"
-            " JAX devices exist"
-        )
-        raise ValueError(msg)
 
-    if workers > 1 and updating == "immediate":
+    if workers != 1 and updating == "immediate":
         msg = (
             "differential_evolution: the 'workers' keyword has overridden "
             "updating='immediate' to updating='deferred'"
@@ -119,18 +104,10 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         warnings.warn(msg, UserWarning, stacklevel=2)
         updating = "deferred"
 
-    if workers > 1:
-        if popsize < workers:
-            workers = popsize
-        else:
-            popsize += (workers - popsize % workers) % workers
-
-        pmapped_func = jax.shard_map(
-            jax.vmap(func),
-            mesh=jax.make_mesh((workers,), ("d",)),
-            in_specs=P("d"),
-            out_specs=P("d"),
-        )
+    if workers != 1:
+        vmapped_func = pvmap(func, max_devices=None if workers == -1 else workers)
+    else:
+        vmapped_func = jax.vmap(func)
 
     # Initialize population (Latin hypercube sampling)
     segsize = 1.0 / popsize
@@ -148,7 +125,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     if x0 is not None:
         pop = pop.at[0].set(jnp.asarray(x0))
 
-    fitness = pmapped_func(pop) if workers > 1 else jax.vmap(func)(pop)
+    fitness = vmapped_func(pop)
 
     def make_trial(
         pop: jax.Array, fitness: jax.Array, i: int, key: jax.Array
@@ -270,7 +247,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
                 jnp.arange(popsize), keys
             )
             key = keys[-1]
-            f_trials = pmapped_func(trials) if workers > 1 else jax.vmap(func)(trials)
+            f_trials = vmapped_func(trials)
             better = f_trials < fitness
             pop = jnp.where(better[:, None], trials, pop)
             fitness = jnp.where(better, f_trials, fitness)
