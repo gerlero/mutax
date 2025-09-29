@@ -66,7 +66,8 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
       as the base vector, while "best1bin" uses the best population member found so far.
     - `maxiter`: The maximum number of generations to evolve the population.
     - `popsize`: Multiplier for setting the total population size. The population size
-      is determined by `popsize * dim`.
+      is determined by `popsize * effdim`, where `effdim` is the number of unknowns
+      with non-equal bounds. A minimum population size of 5 is enforced.
     - `tol`: Relative tolerance for convergence.
     - `atol`: Absolute tolerance for convergence.
     - `mutation`: A float or a tuple of two floats specifying the mutation factor. If a
@@ -98,7 +99,8 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     dim = len(bounds)
     lower = jnp.array([b[0] for b in bounds])
     upper = jnp.array([b[1] for b in bounds])
-    popsize *= dim
+    effdim = jnp.minimum(1, dim - jnp.sum(lower == upper))
+    popsize = jnp.maximum(5, popsize * effdim)
 
     if workers < 1 and workers != -1:
         msg = "workers must be a positive integer or -1"
