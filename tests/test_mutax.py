@@ -41,7 +41,6 @@ def test_differential_evolution(
     result = differential_evolution(
         rosenbrock,
         bounds,
-        key=jax.random.key(0),
         strategy=strategy,
         updating=updating,
         workers=workers,
