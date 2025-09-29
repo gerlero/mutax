@@ -16,7 +16,7 @@ OptimizeResults = jax.scipy.optimize.OptimizeResults
 **Attributes:**
 
 - `x`: final solution.
-- `success`: ``True`` if optimization succeeded.
+- `success`: whether the optimization succeeded.
 - `status`: integer solver specific return code. 0 means converged (nominal),
   1=max number of iterations reached.
 - `fun`: final function value.
@@ -59,33 +59,34 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     - `func`: The objective function to be minimized. It must take a single argument
     (a 1D array) and return a scalar.
     - `bounds`: A 2D array specifying the lower and upper bounds for each dimension of
-    the input space.
+      the input space.
     - `key`: A JAX random key for stochastic operations.
     - `strategy`: The differential evolution strategy to use. Can be either "rand1bin"
-    or "best1bin". The "rand1bin" strategy uses a randomly selected population member as
-    the base vector, while "best1bin" uses the best population member found so far.
+      or "best1bin". The "rand1bin" strategy uses a randomly selected population member
+      as the base vector, while "best1bin" uses the best population member found so far.
     - `maxiter`: The maximum number of generations to evolve the population.
     - `popsize`: Multiplier for setting the total population size. The population size
-    is determined by `popsize * dim`.
+      is determined by `popsize * dim`.
     - `tol`: Relative tolerance for convergence.
     - `atol`: Absolute tolerance for convergence.
     - `mutation`: A float or a tuple of two floats specifying the mutation factor. If a
-    tuple is provided, the mutation factor is sampled uniformly from this range for each
-    mutation.
+      tuple is provided, the mutation factor is sampled uniformly from this range for
+      each mutation.
     - `recombination`: A float in [0, 1] specifying the recombination probability.
     - `disp`: Whether to print progress messages at each iteration.
     - `polish`: Whether to perform a local optimization using BFGS at the end of the
-    evolution process to attempt to refine the best solution found. For this local
-    optimization to be effective, the objective function should be differentiable.
+      evolution process to attempt to refine the best solution found. For this local
+      optimization to be effective, the objective function should be differentiable.
     - `updating`: Strategy for updating the population. Can be either "immediate" or
-    "deferred". "immediate" updates individuals as soon as a better trial vector is
-    found, while "deferred" updates the population after all trial vectors have been
-    evaluated.
-    - `workers`: Number of parallel workers to use for evaluating the objective
-    function. If set to -1, uses all available JAX devices.
+      "deferred". "immediate" updates individuals as soon as a better trial vector is
+      found, while "deferred" updates the population after all trial vectors have been
+      evaluated.
+    - `workers`: Number of JAX devices (CPUs/GPUs/TPUs) used for evaluating the
+      objective function. If set to -1, uses all available JAX devices.
     - `x0`: Optional initial guess.
 
     **Returns:**
+
     An `OptimizeResults` object containing the optimization results.
 
     **Reference:**
