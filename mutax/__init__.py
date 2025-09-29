@@ -83,7 +83,9 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
       found, while "deferred" updates the population after all trial vectors have been
       evaluated.
     - `workers`: Number of JAX devices (CPUs/GPUs/TPUs) used for evaluating the
-      objective function. If set to -1, uses all available JAX devices.
+      objective function. If set to -1, uses all available JAX devices. Uses
+      [Parajax](https://github.com/gerlero/parajax) for parallelization. Note that
+      setting this to a value other than 1 will override `updating` to "deferred".
     - `x0`: Optional initial guess.
 
     **Returns:**
