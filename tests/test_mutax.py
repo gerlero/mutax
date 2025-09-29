@@ -53,3 +53,34 @@ def test_differential_evolution(
     assert result.x == pytest.approx([1.0, 1.0])
     assert result.fun == pytest.approx(0.0)
     assert result.nit < 200
+
+
+@pytest.mark.parametrize("polish", [True, False])
+def test_workers_same_result(*, polish: bool) -> None:
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    result = differential_evolution(
+        rosenbrock,
+        bounds,
+        key=jax.random.key(42),
+        polish=polish,
+        updating="deferred",
+    )
+    result2 = differential_evolution(
+        rosenbrock,
+        bounds,
+        key=jax.random.key(42),
+        polish=polish,
+        workers=2,
+    )
+    result3 = differential_evolution(
+        rosenbrock,
+        bounds,
+        key=jax.random.key(42),
+        polish=polish,
+        workers=-1,
+    )
+    assert result.success
+    assert result2.success
+    assert result3.success
+    assert jnp.all(result2.x == result.x)
+    assert jnp.all(result3.x == result.x)
