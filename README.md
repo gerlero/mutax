@@ -24,7 +24,6 @@ pip install mutax
 ## Quick start
 
 ```python
-import jax
 import jax.numpy as jnp
 from mutax import differential_evolution
 
@@ -33,7 +32,7 @@ def cost_function(x):
 
 bounds = [(-5, 5)] * 10  # 10-dimensional problem with bounds for each dimension
 
-result = differential_evolution(cost_function, bounds, key=jax.random.key(0))
+result = differential_evolution(cost_function, bounds)
 print("Best solution:", result.x)
 print("Objective value:", result.fun)
 ```
