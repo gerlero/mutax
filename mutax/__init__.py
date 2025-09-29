@@ -18,11 +18,14 @@ OptimizeResults = jax.scipy.optimize.OptimizeResults
 - `x`: final solution.
 - `success`: ``True`` if optimization succeeded.
 - `status`: integer solver specific return code. 0 means converged (nominal),
-  1=max BFGS iters reached, 3=zoom failed, 4=saddle point reached,
-  5=max line search iters reached, -1=undefined
+  1=max number of iterations reached.
 - `fun`: final function value.
 - `nfev`: integer number of function calls used.
+- `njev`: integer number of Jacobian evaluations used (only if `polish` was
+  set to ``True``).
 - `nit`: integer number of iterations of the optimization algorithm.
+- `jac`: final Jacobian (only if the solution was polished).
+- `hess_inv`: inverse of the final Hessian (only if the solution was polished).
 """
 
 
@@ -41,6 +44,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     mutation: float | tuple[float, float] = (0.5, 1.0),
     recombination: float = 0.8,
     disp: bool = False,
+    polish: bool = True,
     updating: Literal["immediate", "deferred"] = "immediate",
     workers: int = 1,
     x0: jax.Array | None = None,
@@ -70,6 +74,9 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     mutation.
     - `recombination`: A float in [0, 1] specifying the recombination probability.
     - `disp`: Whether to print progress messages at each iteration.
+    - `polish`: Whether to perform a local optimization using BFGS at the end of the
+    evolution process to attempt to refine the best solution found. For this local
+    optimization to be effective, the objective function should be differentiable.
     - `updating`: Strategy for updating the population. Can be either "immediate" or
     "deferred". "immediate" updates individuals as soon as a better trial vector is
     found, while "deferred" updates the population after all trial vectors have been
@@ -268,14 +275,48 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         (1, pop, fitness, key),
     )
 
-    best_idx = jnp.argmin(fitness)
     success = converged(fitness)
+    best_idx = jnp.argmin(fitness)
+    best = pop[best_idx]
+    best_fitness = fitness[best_idx]
+
+    if polish:
+        if disp:
+            jax.debug.print("Polishing solution with BFGS")
+
+        result = jax.scipy.optimize.minimize(
+            func,
+            best,
+            method="BFGS",
+        )
+        polished = (
+            result.success
+            & (result.fun < best_fitness)
+            & jnp.all((result.x >= lower) & (result.x <= upper))
+        )
+        best = jnp.where(polished, result.x, best)
+        best_fitness = jnp.where(polished, result.fun, best_fitness)
+
+        return OptimizeResults(
+            x=best,
+            fun=best_fitness,
+            success=success,
+            status=(~success).astype(int),
+            jac=jnp.where(polished, result.jac, jnp.full_like(result.jac, jnp.nan)),
+            hess_inv=jnp.where(
+                polished, result.hess_inv, jnp.full_like(result.hess_inv, jnp.nan)
+            ),
+            nfev=result.nfev + nit * popsize,
+            njev=result.njev,
+            nit=nit,
+        )
+
     return OptimizeResults(
-        x=pop[best_idx],
-        fun=fitness[best_idx],
+        x=best,
+        fun=best_fitness,
         success=success,
         status=(~success).astype(int),
-        jac=jnp.array(0),
+        jac=None,
         hess_inv=None,
         nfev=nit * popsize,
         njev=jnp.array(0),
