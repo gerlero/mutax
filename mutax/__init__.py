@@ -8,7 +8,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.scipy.optimize
-from parajax import pvmap
+from parajax import autopmap
 
 OptimizeResults = jax.scipy.optimize.OptimizeResults
 """Object holding optimization results.
@@ -118,10 +118,11 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         warnings.warn(msg, UserWarning, stacklevel=2)
         updating = "deferred"
 
+    vmapped_func = jax.vmap(func)
     if workers != 1:
-        vmapped_func = pvmap(func, max_devices=None if workers == -1 else workers)
-    else:
-        vmapped_func = jax.vmap(func)
+        vmapped_func = autopmap(
+            vmapped_func, max_devices=None if workers == -1 else workers
+        )
 
     # Initialize population (Latin hypercube sampling)
     segsize = 1.0 / popsize
