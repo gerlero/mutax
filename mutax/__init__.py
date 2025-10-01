@@ -46,7 +46,8 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
     disp: bool = False,
     polish: bool = True,
     updating: Literal["immediate", "deferred"] = "immediate",
-    workers: int = 1,
+    workers: int
+    | Callable[[Callable[[jax.Array], jax.Array], jax.Array], jax.Array] = 1,
     x0: jax.Array | None = None,
     vectorized: bool = False,
 ) -> OptimizeResults:
@@ -84,9 +85,12 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
       found, while "deferred" updates the population after all trial vectors have been
       evaluated.
     - `workers`: Number of JAX devices (CPUs/GPUs/TPUs) used for evaluating the
-      objective function. If set to -1, uses all available JAX devices. Uses
-      [Parajax](https://github.com/gerlero/parajax) for parallelization. Note that
-      setting this to a value other than 1 will override `updating` to "deferred".
+      objective function. Uses [Parajax](https://github.com/gerlero/parajax) for
+      parallelization. If set to -1, uses all available JAX devices. Alternatively, if
+      a callable is provided, it should be a callable as ```workers(func, x)```, where
+      `x` is a 2D array with each row being a different input to be evaluated. The
+      callable should return a 1D array of function values. Setting this argument to a
+      value other than 1 will override `updating` to "deferred".
     - `x0`: Optional initial guess.
     - `vectorized`: If `True`, indicates that `func` accepts a 2D array where each
       column is a different input to be evaluated. If used, it will override `updating`
@@ -110,7 +114,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
     if key is None:
         key = jax.random.key(8959915698270734364)  # = hash("mutax")
 
-    if workers < 1 and workers != -1:
+    if not callable(workers) and workers < 1 and workers != -1:  # ty: ignore[unsupported-operator]
         msg = "workers must be a positive integer or -1"
         raise ValueError(msg)
 
@@ -140,6 +144,16 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
         else:
             single_func = func
             vmapped_func = jax.vmap(func)
+    elif callable(workers):
+        if vectorized:
+            msg = "If 'workers' is a callable, 'vectorized' must be False"
+            raise ValueError(msg)
+
+        def single_func(x: jax.Array) -> jax.Array:
+            return func(x[None, :])[0]
+
+        def vmapped_func(x: jax.Array) -> jax.Array:
+            return workers(func, x)
     else:
         max_devices = None if workers == -1 else workers
         if vectorized:
@@ -147,10 +161,10 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             def single_func(x: jax.Array) -> jax.Array:
                 return func(x[None, :])[0]
 
-            vmapped_func = autopmap(lambda x: func(x.T), max_devices=max_devices)
+            vmapped_func = autopmap(lambda x: func(x.T), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
         else:
             single_func = func
-            vmapped_func = autopmap(jax.vmap(func), max_devices=max_devices)
+            vmapped_func = autopmap(jax.vmap(func), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
 
     # Initialize population (Latin hypercube sampling)
     segsize = 1.0 / popsize
