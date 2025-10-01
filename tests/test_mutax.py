@@ -10,7 +10,7 @@ jax.config.update("jax_num_cpu_devices", multiprocessing.cpu_count())
 
 
 def rosenbrock(x: jax.Array) -> jax.Array:
-    return jnp.sum(100.0 * (x[1:] - x[:-1] ** 2.0) ** 2.0 + (1 - x[:-1]) ** 2.0)
+    return jnp.sum(100.0 * (x[1:] - x[:-1] ** 2.0) ** 2.0 + (1 - x[:-1]) ** 2.0, axis=0)
 
 
 def test_rosenbrock() -> None:
@@ -29,13 +29,15 @@ def test_rosenbrock() -> None:
 @pytest.mark.parametrize("workers", [1, 2, -1])
 @pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
 @pytest.mark.parametrize("polish", [True, False])
-def test_differential_evolution(
+@pytest.mark.parametrize("vectorized", [False, True])
+def test_differential_evolution(  # noqa: PLR0913
     *,
     strategy: Literal["rand1bin", "best1bin"],
     updating: Literal["immediate", "deferred"],
     workers: int,
     x0: jax.Array | None,
     polish: bool,
+    vectorized: bool,
 ) -> None:
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     result = differential_evolution(
@@ -46,6 +48,7 @@ def test_differential_evolution(
         workers=workers,
         x0=x0,
         polish=polish,
+        vectorized=vectorized,
     )
     assert result.success
     assert result.status == 0
