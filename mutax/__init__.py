@@ -30,7 +30,7 @@ OptimizeResults = jax.scipy.optimize.OptimizeResults
 
 
 @eqx.filter_jit
-def differential_evolution(  # noqa: C901, PLR0913, PLR0915
+def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
     func: Callable[[jax.Array], jax.Array],
     /,
     bounds: jax.Array,
@@ -48,6 +48,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
     updating: Literal["immediate", "deferred"] = "immediate",
     workers: int = 1,
     x0: jax.Array | None = None,
+    vectorized: bool = False,
 ) -> OptimizeResults:
     """Find the global minimum of a multivariate function.
 
@@ -87,6 +88,9 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
       [Parajax](https://github.com/gerlero/parajax) for parallelization. Note that
       setting this to a value other than 1 will override `updating` to "deferred".
     - `x0`: Optional initial guess.
+    - `vectorized`: If `True`, indicates that `func` accepts a 2D array where each
+      column is a different input to be evaluated. If used, it will override `updating`
+      to "deferred".
 
     **Returns:**
 
@@ -117,12 +121,36 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
         )
         warnings.warn(msg, UserWarning, stacklevel=2)
         updating = "deferred"
-
-    vmapped_func = jax.vmap(func)
-    if workers != 1:
-        vmapped_func = autopmap(
-            vmapped_func, max_devices=None if workers == -1 else workers
+    if workers == 1 and vectorized and updating == "immediate":
+        msg = (
+            "differential_evolution: the 'vectorized' keyword has overridden "
+            "updating='immediate' to updating='deferred'"
         )
+        warnings.warn(msg, UserWarning, stacklevel=2)
+        updating = "deferred"
+
+    if workers == 1:
+        if vectorized:
+
+            def single_func(x: jax.Array) -> jax.Array:
+                return func(x[None, :])[0]
+
+            def vmapped_func(x: jax.Array) -> jax.Array:
+                return func(x.T)
+        else:
+            single_func = func
+            vmapped_func = jax.vmap(func)
+    else:
+        max_devices = None if workers == -1 else workers
+        if vectorized:
+
+            def single_func(x: jax.Array) -> jax.Array:
+                return func(x[None, :])[0]
+
+            vmapped_func = autopmap(lambda x: func(x.T), max_devices=max_devices)
+        else:
+            single_func = func
+            vmapped_func = autopmap(jax.vmap(func), max_devices=max_devices)
 
     # Initialize population (Latin hypercube sampling)
     segsize = 1.0 / popsize
@@ -293,7 +321,7 @@ def differential_evolution(  # noqa: C901, PLR0913, PLR0915
             jax.debug.print("Polishing solution with BFGS")
 
         result = jax.scipy.optimize.minimize(
-            func,
+            single_func,
             best,
             method="BFGS",
         )
