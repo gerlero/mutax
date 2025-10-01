@@ -1,10 +1,12 @@
 import multiprocessing
+from collections.abc import Callable
 from typing import Literal
 
 import jax
 import jax.numpy as jnp
 import pytest
 from mutax import differential_evolution
+from parajax import autopmap
 
 jax.config.update("jax_num_cpu_devices", multiprocessing.cpu_count())
 
@@ -24,9 +26,13 @@ def test_rosenbrock() -> None:
     assert rosenbrock(x3) == 100.0
 
 
+def pmap(func: Callable[[jax.Array], jax.Array], x: jax.Array) -> jax.Array:
+    return autopmap(jax.vmap(func))(x)
+
+
 @pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
 @pytest.mark.parametrize("updating", ["immediate", "deferred"])
-@pytest.mark.parametrize("workers", [1, 2, -1])
+@pytest.mark.parametrize("workers", [1, 2, -1, pmap])
 @pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
 @pytest.mark.parametrize("polish", [True, False])
 @pytest.mark.parametrize("vectorized", [False, True])
@@ -34,11 +40,14 @@ def test_differential_evolution(  # noqa: PLR0913
     *,
     strategy: Literal["rand1bin", "best1bin"],
     updating: Literal["immediate", "deferred"],
-    workers: int,
+    workers: int | Callable[[Callable[[jax.Array], jax.Array], jax.Array], jax.Array],
     x0: jax.Array | None,
     polish: bool,
     vectorized: bool,
 ) -> None:
+    if callable(workers) and vectorized:
+        pytest.skip("Cannot use callable workers with vectorized=True")
+
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     result = differential_evolution(
         rosenbrock,
