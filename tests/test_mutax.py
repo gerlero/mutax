@@ -95,3 +95,15 @@ def test_workers_same_result(*, polish: bool) -> None:
     assert result3.success
     assert jnp.all(result2.x == result.x)
     assert jnp.all(result3.x == result.x)
+
+
+def test_invalid() -> None:
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    with pytest.raises(ValueError, match="strategy"):
+        differential_evolution(rosenbrock, bounds, strategy="invalid")
+    with pytest.raises(ValueError, match="updating"):
+        differential_evolution(rosenbrock, bounds, updating="invalid")
+    with pytest.raises(ValueError, match="workers"):
+        differential_evolution(rosenbrock, bounds, workers=-2)
+    with pytest.raises(ValueError, match="vectorized"):
+        differential_evolution(rosenbrock, bounds, vectorized=True, workers=pmap)
