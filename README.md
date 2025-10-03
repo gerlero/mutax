@@ -1,8 +1,11 @@
-# <div align="center">Mutax</div>
+<div align="center">
+  <a href="https://github.com/gerlero/mutax"><img src="https://raw.githubusercontent.com/gerlero/mutax/main/logo.png" alt="Mutax" width="200"/></a>
 
-**[SciPy-like](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html) differential evolution for [JAX](https://github.com/jax-ml/jax)**
+  **[SciPy-like](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html) differential evolution for [JAX](https://github.com/jax-ml/jax)**
 
-Fully [`jax.jit`](https://docs.jax.dev/en/latest/_autosummary/jax.jit.html#jax.jit)ted optimization of any JAX-compatible function. Serial and parallel execution on CPU, GPU, and TPU.
+  Fully [jitted](https://docs.jax.dev/en/latest/_autosummary/jax.jit.html#jax.jit) optimization of any JAX-compatible function. Serial and parallel execution on CPU, GPU, and TPU.
+</div>
+
 
 [![Documentation](https://img.shields.io/readthedocs/mutax)](https://mutax.readthedocs.io/)
 [![CI](https://github.com/gerlero/mutax/actions/workflows/ci.yml/badge.svg)](https://github.com/gerlero/mutax/actions/workflows/ci.yml)
