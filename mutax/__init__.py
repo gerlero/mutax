@@ -366,7 +366,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
         fun=best_fitness,
         success=success,
         status=(~success).astype(int),
-        jac=None,
+        jac=None,  # ty: ignore[invalid-argument-type]
         hess_inv=None,
         nfev=nit * popsize,
         njev=jnp.array(0),
