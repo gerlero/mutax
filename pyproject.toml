@@ -38,7 +38,7 @@ dependencies = [
 lint = ["ruff"]
 typing = ["ty"]
 test = [
-    "pytest>=8,<9",
+    "pytest>=8,<10",
     "pytest-cov",
 ]
 docs = [
