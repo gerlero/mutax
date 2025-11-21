@@ -57,9 +57,6 @@ Homepage = "https://github.com/gerlero/mutax"
 Repository = "https://github.com/gerlero/mutax"
 Documentation = "https://mutax.readthedocs.io"
 
-[tool.uv.build-backend]
-module-root = "."
-
 [tool.ruff.lint]
 extend-select = ["ALL"]
 extend-ignore = [
