@@ -6,7 +6,6 @@ build-backend = "uv_build"
 name = "mutax"
 version = "0.4.3"
 license = "Apache-2.0"
-license-files = ["LICENSE.txt"]
 authors = [{ name = "Gabriel S. Gerlero", email = "ggerlero@cimec.unl.edu.ar" }]
 description = "Evolutionary optimization algorithms in JAX"
 readme = "README.md"
