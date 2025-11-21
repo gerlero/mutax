@@ -7,7 +7,7 @@ build:
   jobs:
     install:
        - pip install --upgrade pip
-       - pip install --group docs
+       - pip install . --group docs
 
 mkdocs:
   configuration: mkdocs.yml
