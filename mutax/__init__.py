@@ -208,7 +208,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             try:
                 mut_lower, mut_upper = mutation  # ty: ignore[not-iterable]
             except TypeError:
-                mut_val = mutation
+                mut_val: float | jax.Array = mutation  # ty: ignore[invalid-assignment]
             else:
                 key, subkey = jax.random.split(key)
                 mut_val = jax.random.uniform(
@@ -232,7 +232,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             try:
                 mut_lower, mut_upper = mutation  # ty: ignore[not-iterable]
             except TypeError:
-                mut_val = mutation
+                mut_val: float | jax.Array = mutation  # ty: ignore[invalid-assignment]
             else:
                 key, subkey = jax.random.split(key)
                 mut_val = jax.random.uniform(
@@ -351,11 +351,13 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             x=best,
             fun=best_fitness,
             success=success,
-            status=(~success).astype(int),
+            status=(~success).astype(int),  # ty: ignore[invalid-argument-type]
             jac=jnp.where(polished, result.jac, jnp.full_like(result.jac, jnp.nan)),
             hess_inv=jnp.where(
-                polished, result.hess_inv, jnp.full_like(result.hess_inv, jnp.nan)
-            ),
+                polished,
+                result.hess_inv,
+                jnp.full_like(result.hess_inv, jnp.nan),  # ty: ignore[invalid-argument-type]
+            ),  # ty: ignore[invalid-argument-type]
             nfev=result.nfev + nit * popsize,
             njev=result.njev,
             nit=nit,
@@ -365,7 +367,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
         x=best,
         fun=best_fitness,
         success=success,
-        status=(~success).astype(int),
+        status=(~success).astype(int),  # ty: ignore[invalid-argument-type]
         jac=None,  # ty: ignore[invalid-argument-type]
         hess_inv=None,
         nfev=nit * popsize,
