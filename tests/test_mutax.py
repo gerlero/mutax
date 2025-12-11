@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 from mutax import differential_evolution
-from parajax import autopmap
+from parajax import parallelize
 
 jax.config.update("jax_num_cpu_devices", multiprocessing.cpu_count())
 
@@ -27,7 +27,7 @@ def test_rosenbrock() -> None:
 
 
 def pmap(func: Callable[[jax.Array], jax.Array], x: jax.Array) -> jax.Array:
-    return autopmap(jax.vmap(func))(x)
+    return parallelize(jax.vmap(func))(x)
 
 
 @pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
