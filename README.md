@@ -28,8 +28,8 @@ pip install mutax
 import jax.numpy as jnp
 from mutax import differential_evolution
 
-def cost_function(x):
-    return jnp.sum(x**2)
+def cost_function(xs):
+    return jnp.sum(xs**2)
 
 bounds = [(-5, 5)] * 10  # 10-dimensional problem with bounds for each dimension
 
