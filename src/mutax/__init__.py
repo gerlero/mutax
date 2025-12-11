@@ -8,7 +8,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.scipy.optimize
-from parajax import autopmap
+from parajax import parallelize
 
 OptimizeResults = jax.scipy.optimize.OptimizeResults
 """Object holding optimization results.
@@ -161,10 +161,10 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             def single_func(x: jax.Array) -> jax.Array:
                 return func(x[None, :])[0]
 
-            vmapped_func = autopmap(lambda x: func(x.T), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
+            vmapped_func = parallelize(lambda x: func(x.T), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
         else:
             single_func = func
-            vmapped_func = autopmap(jax.vmap(func), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
+            vmapped_func = parallelize(jax.vmap(func), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
 
     # Initialize population (Latin hypercube sampling)
     segsize = 1.0 / popsize
