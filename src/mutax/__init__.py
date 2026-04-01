@@ -114,7 +114,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
     if key is None:
         key = jax.random.key(8959915698270734364)  # = hash("mutax")
 
-    if not callable(workers) and workers < 1 and workers != -1:  # ty: ignore[unsupported-operator]
+    if not callable(workers) and workers < 1 and workers != -1:
         msg = "workers must be a positive integer or -1"
         raise ValueError(msg)
 
@@ -153,7 +153,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             return func(x[None, :])[0]
 
         def vmapped_func(x: jax.Array) -> jax.Array:
-            return workers(func, x)
+            return workers(func, x)  # ty: ignore[call-top-callable]
     else:
         max_devices = None if workers == -1 else workers
         if vectorized:
@@ -161,10 +161,10 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             def single_func(x: jax.Array) -> jax.Array:
                 return func(x[None, :])[0]
 
-            vmapped_func = parallelize(lambda x: func(x.T), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
+            vmapped_func = parallelize(lambda x: func(x.T), max_devices=max_devices)
         else:
             single_func = func
-            vmapped_func = parallelize(jax.vmap(func), max_devices=max_devices)  # ty: ignore[invalid-argument-type]
+            vmapped_func = parallelize(jax.vmap(func), max_devices=max_devices)
 
     # Initialize population (Latin hypercube sampling)
     segsize = 1.0 / popsize
@@ -351,7 +351,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             x=best,
             fun=best_fitness,
             success=success,
-            status=(~success).astype(int),  # ty: ignore[invalid-argument-type]
+            status=(~success).astype(int),
             jac=jnp.where(polished, result.jac, jnp.full_like(result.jac, jnp.nan)),
             hess_inv=jnp.where(
                 polished,
@@ -367,7 +367,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
         x=best,
         fun=best_fitness,
         success=success,
-        status=(~success).astype(int),  # ty: ignore[invalid-argument-type]
+        status=(~success).astype(int),
         jac=None,  # ty: ignore[invalid-argument-type]
         hess_inv=None,
         nfev=nit * popsize,
