@@ -63,7 +63,8 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
     - `bounds`: A 2D array specifying the lower and upper bounds for each dimension of
       the input space.
     - `key`: A JAX random key for stochastic operations. You can use e.g.
-      `jax.random.key(seed)` to generate a key. If not given, a default key is used.
+      `jax.random.key(seed)` to generate a key. If not given, a default key is used,
+      which may change between runs.
     - `strategy`: The differential evolution strategy to use. Can be either "rand1bin"
       or "best1bin". The "rand1bin" strategy uses a randomly selected population member
       as the base vector, while "best1bin" uses the best population member found so far.
@@ -112,7 +113,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
     popsize *= dim
 
     if key is None:
-        key = jax.random.key(8959915698270734364)  # = hash("mutax")
+        key = jax.random.key(hash("mutax"))
 
     if not callable(workers) and workers < 1 and workers != -1:
         msg = "workers must be a positive integer or -1"
