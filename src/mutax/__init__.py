@@ -154,7 +154,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             return func(x[None, :])[0]
 
         def vmapped_func(x: jax.Array) -> jax.Array:
-            return workers(func, x)  # ty: ignore[call-top-callable]
+            return workers(func, x)  # ty: ignore[call-top-callable,invalid-return-type]
     else:
         max_devices = None if workers == -1 else workers
         if vectorized:
