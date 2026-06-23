@@ -348,6 +348,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
         best = jnp.where(polished, result.x, best)
         best_fitness = jnp.where(polished, result.fun, best_fitness)
 
+        assert result.hess_inv is not None  # noqa: S101
         return OptimizeResults(
             x=best,
             fun=best_fitness,
@@ -357,8 +358,8 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
             hess_inv=jnp.where(
                 polished,
                 result.hess_inv,
-                jnp.full_like(result.hess_inv, jnp.nan),  # ty: ignore[invalid-argument-type]
-            ),  # ty: ignore[invalid-argument-type]
+                jnp.full_like(result.hess_inv, jnp.nan),
+            ),
             nfev=result.nfev + nit * popsize,
             njev=result.njev,
             nit=nit,
