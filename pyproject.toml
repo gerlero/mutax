@@ -56,14 +56,5 @@ Homepage = "https://github.com/gerlero/mutax"
 Repository = "https://github.com/gerlero/mutax"
 Documentation = "https://mutax.readthedocs.io"
 
-[tool.ruff.lint]
-extend-select = ["ALL"]
-extend-ignore = [
-    "ANN401",
-    "COM812",
-    "D105",
-    "PLR2004",
-]
-
 [tool.ruff.lint.pydocstyle]
 convention = "google"
