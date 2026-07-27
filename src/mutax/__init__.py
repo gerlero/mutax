@@ -30,7 +30,7 @@ OptimizeResults = jax.scipy.optimize.OptimizeResults
 
 
 @eqx.filter_jit
-def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
+def differential_evolution(
     func: Callable[[jax.Array], jax.Array],
     /,
     bounds: jax.Array,
@@ -348,7 +348,7 @@ def differential_evolution(  # noqa: C901, PLR0912, PLR0913, PLR0915
         best = jnp.where(polished, result.x, best)
         best_fitness = jnp.where(polished, result.fun, best_fitness)
 
-        assert result.hess_inv is not None  # noqa: S101
+        assert result.hess_inv is not None
         return OptimizeResults(
             x=best,
             fun=best_fitness,

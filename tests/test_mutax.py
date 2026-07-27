@@ -5,8 +5,9 @@ from typing import Literal
 import jax
 import jax.numpy as jnp
 import pytest
-from mutax import differential_evolution
 from parajax import parallelize
+
+from mutax import differential_evolution
 
 jax.config.update("jax_num_cpu_devices", multiprocessing.cpu_count())
 
@@ -36,7 +37,7 @@ def pmap(func: Callable[[jax.Array], jax.Array], x: jax.Array) -> jax.Array:
 @pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
 @pytest.mark.parametrize("polish", [True, False])
 @pytest.mark.parametrize("vectorized", [False, True])
-def test_differential_evolution(  # noqa: PLR0913
+def test_differential_evolution(
     *,
     strategy: Literal["rand1bin", "best1bin"],
     updating: Literal["immediate", "deferred"],
