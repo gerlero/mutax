@@ -101,9 +101,9 @@ def test_workers_same_result(*, polish: bool) -> None:
 def test_invalid() -> None:
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     with pytest.raises(ValueError, match="strategy"):
-        differential_evolution(rosenbrock, bounds, strategy="invalid")
+        differential_evolution(rosenbrock, bounds, strategy="invalid")  # ty: ignore[invalid-argument-type]
     with pytest.raises(ValueError, match="updating"):
-        differential_evolution(rosenbrock, bounds, updating="invalid")
+        differential_evolution(rosenbrock, bounds, updating="invalid")  # ty: ignore[invalid-argument-type]
     with pytest.raises(ValueError, match="workers"):
         differential_evolution(rosenbrock, bounds, workers=-2)
     with pytest.raises(ValueError, match="vectorized"):
