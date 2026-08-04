@@ -92,7 +92,7 @@ def differential_evolution(
       `x` is a 2D array with each row being a different input to be evaluated. The
       callable should return a 1D array of function values. Setting this argument to a
       value other than 1 will override `updating` to "deferred".
-    - `x0`: Optional initial guess.
+    - `x0`: Optional initial guess. Values outside `bounds` are clipped to them.
     - `vectorized`: If `True`, indicates that `func` accepts a 2D array where each
       column is a different input to be evaluated. If used, it will override `updating`
       to "deferred".
@@ -181,7 +181,9 @@ def differential_evolution(
     )
 
     if x0 is not None:
-        pop = pop.at[0].set(jnp.asarray(x0))
+        # Clip to the bounds, as is done with the mutant vectors below, so that the
+        # whole population -- and therefore the returned solution -- stays inside them
+        pop = pop.at[0].set(jnp.clip(jnp.asarray(x0), lower, upper))
 
     fitness = vmapped_func(pop)
 

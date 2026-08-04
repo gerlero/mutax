@@ -98,6 +98,69 @@ def test_workers_same_result(*, polish: bool) -> None:
     assert jnp.all(result3.x == result.x)
 
 
+@pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
+@pytest.mark.parametrize("updating", ["immediate", "deferred"])
+@pytest.mark.parametrize("polish", [True, False])
+@pytest.mark.parametrize(
+    "x0", [None, [-5.0, 5.0], [-5.0, 0.0], [0.0, 5.0], [-1.0, 1.0]]
+)
+def test_x0_out_of_bounds(
+    *,
+    strategy: Literal["rand1bin", "best1bin"],
+    updating: Literal["immediate", "deferred"],
+    polish: bool,
+    x0: jax.Array | None,
+) -> None:
+    # Objective minimized at [-5, 5], which lies outside `bounds` past the lower
+    # bound in one dimension and past the upper bound in the other, so the
+    # constrained minimum is the corner [-1, 1]
+    bounds = jnp.array([[-1.0, 3.0], [-2.0, 1.0]])
+
+    def cost(x: jax.Array) -> jax.Array:
+        return jnp.sum((x - jnp.array([-5.0, 5.0])) ** 2)
+
+    result = differential_evolution(
+        cost,
+        bounds,
+        key=jax.random.key(0),
+        strategy=strategy,
+        updating=updating,
+        polish=polish,
+        x0=x0,
+    )
+    assert jnp.all(result.x >= bounds[:, 0])
+    assert jnp.all(result.x <= bounds[:, 1])
+    assert result.x == pytest.approx([-1.0, 1.0])
+
+
+@pytest.mark.parametrize(
+    ("x0", "clipped"),
+    [
+        ([-5.0, 5.0], [-1.0, 1.0]),
+        ([-5.0, 0.0], [-1.0, 0.0]),
+        ([0.0, 5.0], [0.0, 1.0]),
+        ([10.0, -10.0], [3.0, -2.0]),
+        ([-1.0, 1.0], [-1.0, 1.0]),
+        ([0.0, 0.0], [0.0, 0.0]),
+    ],
+)
+def test_x0_clipped_into_initial_population(
+    *, x0: jax.Array, clipped: jax.Array
+) -> None:
+    bounds = jnp.array([[-1.0, 3.0], [-2.0, 1.0]])
+    target = jnp.array(x0)
+
+    def cost(x: jax.Array) -> jax.Array:
+        return jnp.sum((x - target) ** 2)
+
+    # No generations are run, so the result is the best member of the initial
+    # population, and the clipped guess is the point of `bounds` closest to `target`
+    result = differential_evolution(
+        cost, bounds, key=jax.random.key(0), maxiter=0, polish=False, x0=x0
+    )
+    assert result.x == pytest.approx(clipped)
+
+
 def test_invalid() -> None:
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     with pytest.raises(ValueError, match="strategy"):
