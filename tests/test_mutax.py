@@ -128,7 +128,7 @@ def test_x0_out_of_bounds(
     polish: bool,
     x0: list[float],
 ) -> None:
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lay outside"):
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
         differential_evolution(
             sphere,
             X0_BOUNDS,
@@ -172,7 +172,7 @@ def test_x0_out_of_bounds_traced() -> None:
         ).x
 
     assert jnp.allclose(run(jnp.array([0.0, 0.0])), 0.0, atol=1e-5)
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lay outside"):
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
         run(jnp.array([0.0, 5.0]))
 
 
@@ -187,9 +187,9 @@ def test_x0_out_of_bounds_vmapped() -> None:
 
     assert jnp.allclose(run(jnp.array([[0.0, 0.0], [1.0, -1.0]])), 0.0, atol=1e-5)
     # Only one of the two batch elements is out of bounds
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lay outside"):
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
         run(jnp.array([[0.0, 0.0], [0.0, 5.0]]))
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lay outside"):
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
         run(jnp.array([[0.0, 5.0], [0.0, 0.0]]))
 
 
