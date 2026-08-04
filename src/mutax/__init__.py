@@ -92,7 +92,7 @@ def differential_evolution(
       `x` is a 2D array with each row being a different input to be evaluated. The
       callable should return a 1D array of function values. Setting this argument to a
       value other than 1 will override `updating` to "deferred".
-    - `x0`: Optional initial guess.
+    - `x0`: Optional initial guess. Must lie within `bounds`.
     - `vectorized`: If `True`, indicates that `func` accepts a 2D array where each
       column is a different input to be evaluated. If used, it will override `updating`
       to "deferred".
@@ -181,7 +181,15 @@ def differential_evolution(
     )
 
     if x0 is not None:
-        pop = pop.at[0].set(jnp.asarray(x0))
+        x0 = jnp.asarray(x0)
+        # Checked at runtime so that it also works on traced values (e.g. under `jit`
+        # or `vmap`), unlike a plain `if`
+        x0 = eqx.error_if(
+            x0,
+            (x0 < lower) | (x0 > upper),
+            "Some entries in x0 lie outside the specified bounds",
+        )
+        pop = pop.at[0].set(x0)
 
     fitness = vmapped_func(pop)
 

@@ -2,6 +2,7 @@ import multiprocessing
 from collections.abc import Callable
 from typing import Literal
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import pytest
@@ -96,6 +97,100 @@ def test_workers_same_result(*, polish: bool) -> None:
     assert result3.success
     assert jnp.all(result2.x == result.x)
     assert jnp.all(result3.x == result.x)
+
+
+# Asymmetric and per-dimension different, so that swapping the two bounds or using
+# only one dimension's bounds does not go unnoticed
+X0_BOUNDS = jnp.array([[-1.0, 3.0], [-2.0, 1.0]])
+
+
+def sphere(x: jax.Array) -> jax.Array:
+    return jnp.sum(x**2, axis=0)
+
+
+@pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
+@pytest.mark.parametrize("updating", ["immediate", "deferred"])
+@pytest.mark.parametrize("polish", [True, False])
+@pytest.mark.parametrize(
+    "x0",
+    [
+        [-5.0, 0.0],  # below the lower bound
+        [0.0, 5.0],  # above the upper bound
+        [-5.0, 5.0],  # both, one in each direction
+        [10.0, -10.0],  # both, the other way around
+        [0.0, -10.0],  # below the lower bound of the second dimension only
+    ],
+)
+def test_x0_out_of_bounds(
+    *,
+    strategy: Literal["rand1bin", "best1bin"],
+    updating: Literal["immediate", "deferred"],
+    polish: bool,
+    x0: list[float],
+) -> None:
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+        differential_evolution(
+            sphere,
+            X0_BOUNDS,
+            key=jax.random.key(0),
+            strategy=strategy,
+            updating=updating,
+            polish=polish,
+            x0=jnp.array(x0),
+        )
+
+
+@pytest.mark.parametrize(
+    "x0",
+    [
+        [0.0, 0.0],
+        [-1.0, 1.0],  # exactly on the bounds, which is allowed
+        [3.0, -2.0],  # the other two, also exactly on the bounds
+        [2.5, -1.5],
+    ],
+)
+def test_x0_in_bounds(*, x0: list[float]) -> None:
+    target = jnp.array(x0)
+
+    def cost(x: jax.Array) -> jax.Array:
+        return jnp.sum((x - target) ** 2)
+
+    # No generations are run, so the result can only be the best member of the
+    # initial population: this pins that `x0` is in it, and unmodified
+    result = differential_evolution(
+        cost, X0_BOUNDS, key=jax.random.key(0), maxiter=0, polish=False, x0=target
+    )
+    assert result.x == pytest.approx(x0)
+
+
+def test_x0_out_of_bounds_traced() -> None:
+    # `x0` is a tracer here, so the check cannot be a plain Python `if`
+    @eqx.filter_jit
+    def run(x0: jax.Array) -> jax.Array:
+        return differential_evolution(
+            sphere, X0_BOUNDS, key=jax.random.key(0), polish=False, x0=x0
+        ).x
+
+    assert jnp.allclose(run(jnp.array([0.0, 0.0])), 0.0, atol=1e-5)
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+        run(jnp.array([0.0, 5.0]))
+
+
+def test_x0_out_of_bounds_vmapped() -> None:
+    run = jax.vmap(
+        lambda x0: (
+            differential_evolution(
+                sphere, X0_BOUNDS, key=jax.random.key(0), polish=False, x0=x0
+            ).x
+        )
+    )
+
+    assert jnp.allclose(run(jnp.array([[0.0, 0.0], [1.0, -1.0]])), 0.0, atol=1e-5)
+    # Only one of the two batch elements is out of bounds
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+        run(jnp.array([[0.0, 0.0], [0.0, 5.0]]))
+    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+        run(jnp.array([[0.0, 5.0], [0.0, 0.0]]))
 
 
 def test_invalid() -> None:
