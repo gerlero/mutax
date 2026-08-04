@@ -187,7 +187,7 @@ def differential_evolution(
         x0 = eqx.error_if(
             x0,
             (x0 < lower) | (x0 > upper),
-            "Some entries in x0 lay outside the specified bounds",
+            "Some entries in x0 lie outside the specified bounds",
         )
         pop = pop.at[0].set(x0)
 
