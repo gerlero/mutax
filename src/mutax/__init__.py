@@ -134,37 +134,36 @@ def differential_evolution(
         warnings.warn(msg, UserWarning, stacklevel=2)
         updating = "deferred"
 
+    # How a single point is evaluated depends on the calling convention of `func`
+    # (i.e. on `vectorized`) alone, never on `workers`, which only decides how a
+    # whole population is spread over devices
+    if vectorized:
+
+        def single_func(x: jax.Array) -> jax.Array:
+            # `x` is a single point, so it is passed as the only column of a 2D array
+            return func(x[:, None])[0]
+    else:
+        single_func = func
+
     if workers == 1:
         if vectorized:
-
-            def single_func(x: jax.Array) -> jax.Array:
-                return func(x[None, :])[0]
 
             def vmapped_func(x: jax.Array) -> jax.Array:
                 return func(x.T)
         else:
-            single_func = func
             vmapped_func = jax.vmap(func)
     elif callable(workers):
         if vectorized:
             msg = "If 'workers' is a callable, 'vectorized' must be False"
             raise ValueError(msg)
 
-        def single_func(x: jax.Array) -> jax.Array:
-            return func(x[None, :])[0]
-
         def vmapped_func(x: jax.Array) -> jax.Array:
             return workers(func, x)  # ty: ignore[call-top-callable,invalid-return-type]
     else:
         max_devices = None if workers == -1 else workers
         if vectorized:
-
-            def single_func(x: jax.Array) -> jax.Array:
-                return func(x[None, :])[0]
-
             vmapped_func = parallelize(lambda x: func(x.T), max_devices=max_devices)
         else:
-            single_func = func
             vmapped_func = parallelize(jax.vmap(func), max_devices=max_devices)
 
     # Initialize population (Latin hypercube sampling)
@@ -284,7 +283,7 @@ def differential_evolution(
                 trial, key = make_trial(pop, fitness, i, key)
 
                 # Selection
-                f_trial = func(trial)
+                f_trial = single_func(trial)
                 better = f_trial < fitness[i]
                 pop = pop.at[i].set(jnp.where(better, trial, pop[i]))
                 fitness = fitness.at[i].set(jnp.where(better, f_trial, fitness[i]))

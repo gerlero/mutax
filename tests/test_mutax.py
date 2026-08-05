@@ -193,6 +193,143 @@ def test_x0_out_of_bounds_vmapped() -> None:
         run(jnp.array([[0.0, 5.0], [0.0, 0.0]]))
 
 
+def scalar_rosenbrock(x: jax.Array) -> jax.Array:
+    """`rosenbrock`, but returning a scalar, as `func` is documented to do."""
+    return jnp.sum(100.0 * (x[1:] - x[:-1] ** 2.0) ** 2.0 + (1 - x[:-1]) ** 2.0)
+
+
+def evaluate(
+    func: Callable[[jax.Array], jax.Array], x: jax.Array, *, vectorized: bool
+) -> jax.Array:
+    """Evaluate `func` at the single point `x`, using its own calling convention."""
+    return func(x[:, None])[0] if vectorized else func(x)
+
+
+@pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
+@pytest.mark.parametrize("updating", ["immediate", "deferred"])
+@pytest.mark.parametrize("workers", [1, 2, -1, pmap])
+@pytest.mark.parametrize("vectorized", [False, True])
+@pytest.mark.parametrize("func", [rosenbrock, sphere])
+def test_reported_fun_matches_objective(
+    *,
+    strategy: Literal["rand1bin", "best1bin"],
+    updating: Literal["immediate", "deferred"],
+    workers: int | Callable[[Callable[[jax.Array], jax.Array], jax.Array], jax.Array],
+    vectorized: bool,
+    func: Callable[[jax.Array], jax.Array],
+) -> None:
+    if callable(workers) and vectorized:
+        pytest.skip("Cannot use callable workers with vectorized=True")
+
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    # With zero tolerances the run never converges early, so exactly `maxiter`
+    # generations are evolved and it is the BFGS polish that decides the answer
+    result = differential_evolution(
+        func,
+        bounds,
+        key=jax.random.key(0),
+        strategy=strategy,
+        updating=updating,
+        workers=workers,
+        vectorized=vectorized,
+        polish=True,
+        maxiter=10,
+        tol=0.0,
+        atol=0.0,
+    )
+    assert result.fun == pytest.approx(
+        evaluate(func, result.x, vectorized=vectorized), rel=1e-4, abs=1e-6
+    )
+
+
+@pytest.mark.parametrize("workers", [1, 2, -1, pmap])
+@pytest.mark.parametrize("polish", [True, False])
+def test_scalar_objective(
+    *,
+    workers: int | Callable[[Callable[[jax.Array], jax.Array], jax.Array], jax.Array],
+    polish: bool,
+) -> None:
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    result = differential_evolution(
+        scalar_rosenbrock,
+        bounds,
+        key=jax.random.key(42),
+        workers=workers,
+        polish=polish,
+    )
+    assert result.success
+    assert result.x == pytest.approx([1.0, 1.0])
+    assert result.fun == pytest.approx(scalar_rosenbrock(result.x), abs=1e-6)
+
+
+def test_vectorized_func_only_receives_columns() -> None:
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    shapes = []
+
+    def recording(x: jax.Array) -> jax.Array:
+        shapes.append(x.shape)
+        return rosenbrock(x)
+
+    differential_evolution(
+        recording,
+        bounds,
+        key=jax.random.key(0),
+        vectorized=True,
+        polish=True,
+        maxiter=10,
+        tol=0.0,
+        atol=0.0,
+    )
+
+    assert shapes
+    # `bounds` has two rows, so every call must be (2, S): the polish evaluates a
+    # single point, which is one column and not a one-row array
+    assert all(shape[0] == 2 for shape in shapes), shapes
+    assert (2, 1) in shapes, shapes
+
+
+@pytest.mark.parametrize("polish", [True, False])
+def test_vectorized_same_result(*, polish: bool) -> None:
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    result = differential_evolution(
+        rosenbrock,
+        bounds,
+        key=jax.random.key(42),
+        polish=polish,
+        updating="deferred",
+        maxiter=10,
+        tol=0.0,
+        atol=0.0,
+    )
+    result2 = differential_evolution(
+        rosenbrock,
+        bounds,
+        key=jax.random.key(42),
+        polish=polish,
+        updating="deferred",
+        maxiter=10,
+        tol=0.0,
+        atol=0.0,
+        vectorized=True,
+    )
+    result3 = differential_evolution(
+        rosenbrock,
+        bounds,
+        key=jax.random.key(42),
+        polish=polish,
+        updating="deferred",
+        maxiter=10,
+        tol=0.0,
+        atol=0.0,
+        workers=pmap,
+    )
+
+    assert result2.x == pytest.approx(result.x, abs=1e-6)
+    assert result3.x == pytest.approx(result.x, abs=1e-6)
+    assert result2.fun == pytest.approx(result.fun, abs=1e-6)
+    assert result3.fun == pytest.approx(result.fun, abs=1e-6)
+
+
 def test_invalid() -> None:
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     with pytest.raises(ValueError, match="strategy"):
