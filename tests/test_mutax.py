@@ -37,7 +37,6 @@ def pmap(func: Callable[[jax.Array], jax.Array], x: jax.Array) -> jax.Array:
 @pytest.mark.parametrize("workers", [1, 2, -1, pmap])
 @pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
 @pytest.mark.parametrize("polish", [True, False])
-@pytest.mark.parametrize("vectorized", [False, True])
 def test_differential_evolution(
     *,
     strategy: Literal["rand1bin", "best1bin"],
@@ -45,11 +44,7 @@ def test_differential_evolution(
     workers: int | Callable[[Callable[[jax.Array], jax.Array], jax.Array], jax.Array],
     x0: jax.Array | None,
     polish: bool,
-    vectorized: bool,
 ) -> None:
-    if callable(workers) and vectorized:
-        pytest.skip("Cannot use callable workers with vectorized=True")
-
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     result = differential_evolution(
         rosenbrock,
@@ -59,7 +54,34 @@ def test_differential_evolution(
         workers=workers,
         x0=x0,
         polish=polish,
-        vectorized=vectorized,
+    )
+    assert result.success
+    assert result.status == 0
+    assert result.x == pytest.approx([1.0, 1.0])
+    assert result.fun == pytest.approx(0.0)
+    assert result.nit < 200
+
+
+@pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
+@pytest.mark.parametrize("workers", [1, 2, -1])
+@pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
+@pytest.mark.parametrize("polish", [True, False])
+def test_vectorized(
+    *,
+    strategy: Literal["rand1bin", "best1bin"],
+    workers: int,
+    x0: jax.Array | None,
+    polish: bool,
+) -> None:
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    result = differential_evolution(
+        rosenbrock,
+        bounds,
+        strategy=strategy,
+        workers=workers,
+        x0=x0,
+        polish=polish,
+        vectorized=True,
     )
     assert result.success
     assert result.status == 0
@@ -328,6 +350,22 @@ def test_vectorized_same_result(*, polish: bool) -> None:
     assert result3.x == pytest.approx(result.x, abs=1e-6)
     assert result2.fun == pytest.approx(result.fun, abs=1e-6)
     assert result3.fun == pytest.approx(result.fun, abs=1e-6)
+
+
+def test_warnings() -> None:
+    bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
+    with pytest.warns(UserWarning, match="workers.*updating.*immediate.*deferred"):
+        differential_evolution(
+            rosenbrock,
+            bounds,
+            workers=pmap,
+        )
+    with pytest.warns(UserWarning, match="vectorized.*updating.*immediate.*deferred"):
+        differential_evolution(
+            rosenbrock,
+            bounds,
+            vectorized=True,
+        )
 
 
 def test_invalid() -> None:
