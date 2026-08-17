@@ -119,20 +119,21 @@ def differential_evolution(
         msg = "workers must be a positive integer or -1"
         raise ValueError(msg)
 
-    if workers != 1 and updating == "immediate":
-        msg = (
-            "differential_evolution: the 'workers' keyword has overridden "
-            "updating='immediate' to updating='deferred'"
-        )
-        warnings.warn(msg, UserWarning, stacklevel=2)
-        updating = "deferred"
-    if workers == 1 and vectorized and updating == "immediate":
-        msg = (
-            "differential_evolution: the 'vectorized' keyword has overridden "
-            "updating='immediate' to updating='deferred'"
-        )
-        warnings.warn(msg, UserWarning, stacklevel=2)
-        updating = "deferred"
+    if updating == "immediate":
+        if workers != 1:
+            msg = (
+                "differential_evolution: the 'workers' keyword has overridden "
+                "updating='immediate' to updating='deferred'"
+            )
+            warnings.warn(msg, UserWarning, stacklevel=2)
+            updating = "deferred"
+        elif vectorized:
+            msg = (
+                "differential_evolution: the 'vectorized' keyword has overridden "
+                "updating='immediate' to updating='deferred'"
+            )
+            warnings.warn(msg, UserWarning, stacklevel=2)
+            updating = "deferred"
 
     # How a single point is evaluated depends on the calling convention of `func`
     # (i.e. on `vectorized`) alone, never on `workers`, which only decides how a
