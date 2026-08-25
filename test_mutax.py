@@ -6,7 +6,6 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import pytest
-from parajax import parallelize
 
 from mutax import differential_evolution
 
@@ -14,27 +13,31 @@ jax.config.update("jax_num_cpu_devices", multiprocessing.cpu_count())
 
 
 def rosenbrock(x: jax.Array) -> jax.Array:
-    return jnp.sum(100.0 * (x[1:] - x[:-1] ** 2.0) ** 2.0 + (1 - x[:-1]) ** 2.0, axis=0)
+    return jnp.sum(100 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2, axis=0)
 
 
 def test_rosenbrock() -> None:
     x0 = jnp.array([1.0, 1.0])
-    assert rosenbrock(x0) == 0.0
+    assert rosenbrock(x0) == 0
     x1 = jnp.array([0.0, 0.0])
-    assert rosenbrock(x1) == 1.0
+    assert rosenbrock(x1) == 1
     x2 = jnp.array([-1.0, 1.0])
-    assert rosenbrock(x2) == 4.0
+    assert rosenbrock(x2) == 4
     x3 = jnp.array([1.0, 2.0])
-    assert rosenbrock(x3) == 100.0
-
-
-def pmap(func: Callable[[jax.Array], jax.Array], x: jax.Array) -> jax.Array:
-    return parallelize(jax.vmap(func))(x)
+    assert rosenbrock(x3) == 100
 
 
 @pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
-@pytest.mark.parametrize("updating", ["immediate", "deferred"])
-@pytest.mark.parametrize("workers", [1, 2, -1, pmap])
+@pytest.mark.parametrize(
+    ("updating", "workers"),
+    [
+        ("immediate", 1),
+        ("deferred", 1),
+        ("deferred", 2),
+        ("deferred", -1),
+        ("deferred", jax.lax.map),
+    ],
+)
 @pytest.mark.parametrize("x0", [None, [0.0, 0.0]])
 @pytest.mark.parametrize("polish", [True, False])
 def test_differential_evolution(
@@ -57,8 +60,8 @@ def test_differential_evolution(
     )
     assert result.success
     assert result.status == 0
-    assert result.x == pytest.approx([1.0, 1.0])
-    assert result.fun == pytest.approx(0.0)
+    assert result.x == pytest.approx([1, 1])
+    assert result.fun == pytest.approx(0)
     assert result.nit < 200
 
 
@@ -81,12 +84,13 @@ def test_vectorized(
         workers=workers,
         x0=x0,
         polish=polish,
+        updating="deferred",
         vectorized=True,
     )
     assert result.success
     assert result.status == 0
-    assert result.x == pytest.approx([1.0, 1.0])
-    assert result.fun == pytest.approx(0.0)
+    assert result.x == pytest.approx([1, 1])
+    assert result.fun == pytest.approx(0)
     assert result.nit < 200
 
 
@@ -105,6 +109,7 @@ def test_workers_same_result(*, polish: bool) -> None:
         bounds,
         key=jax.random.key(42),
         polish=polish,
+        updating="deferred",
         workers=2,
     )
     result3 = differential_evolution(
@@ -112,6 +117,7 @@ def test_workers_same_result(*, polish: bool) -> None:
         bounds,
         key=jax.random.key(42),
         polish=polish,
+        updating="deferred",
         workers=-1,
     )
     assert result.success
@@ -193,19 +199,18 @@ def test_x0_out_of_bounds_traced() -> None:
             sphere, X0_BOUNDS, key=jax.random.key(0), polish=False, x0=x0
         ).x
 
-    assert jnp.allclose(run(jnp.array([0.0, 0.0])), 0.0, atol=1e-5)
+    assert jnp.allclose(run(jnp.array([0.0, 0.0])), 0, atol=1e-5)
     with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
         run(jnp.array([0.0, 5.0]))
 
 
 def test_x0_out_of_bounds_vmapped() -> None:
-    run = jax.vmap(
-        lambda x0: (
-            differential_evolution(
-                sphere, X0_BOUNDS, key=jax.random.key(0), polish=False, x0=x0
-            ).x
-        )
-    )
+    @eqx.filter_jit
+    @jax.vmap
+    def run(x0: jax.Array) -> jax.Array:
+        return differential_evolution(
+            sphere, X0_BOUNDS, key=jax.random.key(0), polish=False, x0=x0
+        ).x
 
     assert jnp.allclose(run(jnp.array([[0.0, 0.0], [1.0, -1.0]])), 0.0, atol=1e-5)
     # Only one of the two batch elements is out of bounds
@@ -217,7 +222,7 @@ def test_x0_out_of_bounds_vmapped() -> None:
 
 def scalar_rosenbrock(x: jax.Array) -> jax.Array:
     """`rosenbrock`, but returning a scalar, as `func` is documented to do."""
-    return jnp.sum(100.0 * (x[1:] - x[:-1] ** 2.0) ** 2.0 + (1 - x[:-1]) ** 2.0)
+    return jnp.sum(100 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
 
 
 def evaluate(
@@ -228,9 +233,19 @@ def evaluate(
 
 
 @pytest.mark.parametrize("strategy", ["rand1bin", "best1bin"])
-@pytest.mark.parametrize("updating", ["immediate", "deferred"])
-@pytest.mark.parametrize("workers", [1, 2, -1, pmap])
-@pytest.mark.parametrize("vectorized", [False, True])
+@pytest.mark.parametrize(
+    ("updating", "workers", "vectorized"),
+    [
+        ("immediate", 1, False),
+        ("deferred", 1, False),
+        ("deferred", 1, True),
+        ("deferred", 2, False),
+        ("deferred", 2, True),
+        ("deferred", -1, False),
+        ("deferred", -1, True),
+        ("deferred", jax.lax.map, False),
+    ],
+)
 @pytest.mark.parametrize("func", [rosenbrock, sphere])
 def test_reported_fun_matches_objective(
     *,
@@ -264,7 +279,7 @@ def test_reported_fun_matches_objective(
     )
 
 
-@pytest.mark.parametrize("workers", [1, 2, -1, pmap])
+@pytest.mark.parametrize("workers", [1, 2, -1, jax.lax.map])
 @pytest.mark.parametrize("polish", [True, False])
 def test_scalar_objective(
     *,
@@ -276,11 +291,12 @@ def test_scalar_objective(
         scalar_rosenbrock,
         bounds,
         key=jax.random.key(42),
+        updating="deferred",
         workers=workers,
         polish=polish,
     )
     assert result.success
-    assert result.x == pytest.approx([1.0, 1.0])
+    assert result.x == pytest.approx([1, 1])
     assert result.fun == pytest.approx(scalar_rosenbrock(result.x), abs=1e-6)
 
 
@@ -296,6 +312,7 @@ def test_vectorized_func_only_receives_columns() -> None:
         recording,
         bounds,
         key=jax.random.key(0),
+        updating="deferred",
         vectorized=True,
         polish=True,
         maxiter=10,
@@ -343,7 +360,7 @@ def test_vectorized_same_result(*, polish: bool) -> None:
         maxiter=10,
         tol=0.0,
         atol=0.0,
-        workers=pmap,
+        workers=jax.lax.map,
     )
 
     assert result2.x == pytest.approx(result.x, abs=1e-6)
@@ -358,7 +375,7 @@ def test_warnings() -> None:
         differential_evolution(
             rosenbrock,
             bounds,
-            workers=pmap,
+            workers=jax.lax.map,
         )
     with pytest.warns(UserWarning, match="vectorized.*updating.*immediate.*deferred"):
         differential_evolution(
@@ -377,4 +394,10 @@ def test_invalid() -> None:
     with pytest.raises(ValueError, match="workers"):
         differential_evolution(rosenbrock, bounds, workers=-2)
     with pytest.raises(ValueError, match="vectorized"):
-        differential_evolution(rosenbrock, bounds, vectorized=True, workers=pmap)
+        differential_evolution(
+            rosenbrock,
+            bounds,
+            updating="deferred",
+            vectorized=True,
+            workers=jax.lax.map,
+        )
