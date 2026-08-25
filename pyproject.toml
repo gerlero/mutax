@@ -15,7 +15,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -25,10 +24,10 @@ classifiers = [
     "Typing :: Typed",
     "Operating System :: OS Independent",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "equinox>=0.12.1,<0.14",
-    "jax>=0.5,<0.12",
+    "jax>=0.8.1,<0.12",
     "parajax>=0.3,<0.4",
 ]
 
