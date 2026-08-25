@@ -29,7 +29,18 @@ OptimizeResults = jax.scipy.optimize.OptimizeResults
 """
 
 
-@eqx.filter_jit
+@jax.jit(
+    static_argnums=(0,),
+    static_argnames=(
+        "strategy",
+        "popsize",
+        "disp",
+        "polish",
+        "updating",
+        "workers",
+        "vectorized",
+    ),
+)
 def differential_evolution(
     func: Callable[[jax.Array], jax.Array],
     /,
@@ -37,12 +48,15 @@ def differential_evolution(
     *,
     key: jax.Array | None = None,
     strategy: Literal["rand1bin", "best1bin"] = "best1bin",
-    maxiter: int = 1_000,
+    maxiter: int | jax.Array = 1_000,
     popsize: int = 15,
-    tol: float = 0.01,
-    atol: float = 0,
-    mutation: float | tuple[float, float] = (0.5, 1.0),
-    recombination: float = 0.8,
+    tol: float | jax.Array = 0.01,
+    atol: float | jax.Array = 0,
+    mutation: float | jax.Array | tuple[float | jax.Array, float | jax.Array] = (
+        0.5,
+        1.0,
+    ),
+    recombination: float | jax.Array = 0.8,
     disp: bool = False,
     polish: bool = True,
     updating: Literal["immediate", "deferred"] = "immediate",
