@@ -2,7 +2,6 @@ import multiprocessing
 from collections.abc import Callable
 from typing import Literal
 
-import equinox as eqx
 import jax
 import jax.numpy as jnp
 import pytest
@@ -156,7 +155,7 @@ def test_x0_out_of_bounds(
     polish: bool,
     x0: list[float],
 ) -> None:
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+    with pytest.raises((ValueError, RuntimeError), match="x0 lie outside"):
         differential_evolution(
             sphere,
             X0_BOUNDS,
@@ -193,19 +192,19 @@ def test_x0_in_bounds(*, x0: list[float]) -> None:
 
 def test_x0_out_of_bounds_traced() -> None:
     # `x0` is a tracer here, so the check cannot be a plain Python `if`
-    @eqx.filter_jit
+    @jax.jit
     def run(x0: jax.Array) -> jax.Array:
         return differential_evolution(
             sphere, X0_BOUNDS, key=jax.random.key(0), polish=False, x0=x0
         ).x
 
     assert jnp.allclose(run(jnp.array([0.0, 0.0])), 0, atol=1e-5)
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+    with pytest.raises((ValueError, RuntimeError), match="x0 lie outside"):
         run(jnp.array([0.0, 5.0]))
 
 
 def test_x0_out_of_bounds_vmapped() -> None:
-    @eqx.filter_jit
+    @jax.jit
     @jax.vmap
     def run(x0: jax.Array) -> jax.Array:
         return differential_evolution(
@@ -214,9 +213,9 @@ def test_x0_out_of_bounds_vmapped() -> None:
 
     assert jnp.allclose(run(jnp.array([[0.0, 0.0], [1.0, -1.0]])), 0.0, atol=1e-5)
     # Only one of the two batch elements is out of bounds
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+    with pytest.raises((ValueError, RuntimeError), match="x0 lie outside"):
         run(jnp.array([[0.0, 0.0], [0.0, 5.0]]))
-    with pytest.raises(eqx.EquinoxRuntimeError, match="x0 lie outside"):
+    with pytest.raises((ValueError, RuntimeError), match="x0 lie outside"):
         run(jnp.array([[0.0, 5.0], [0.0, 0.0]]))
 
 
@@ -388,9 +387,9 @@ def test_warnings() -> None:
 def test_invalid() -> None:
     bounds = jnp.array([[-5.0, 5.0], [-5.0, 5.0]])
     with pytest.raises(ValueError, match="strategy"):
-        differential_evolution(rosenbrock, bounds, strategy="invalid")  # ty: ignore[invalid-argument-type]
+        differential_evolution(rosenbrock, bounds, strategy="invalid")
     with pytest.raises(ValueError, match="updating"):
-        differential_evolution(rosenbrock, bounds, updating="invalid")  # ty: ignore[invalid-argument-type]
+        differential_evolution(rosenbrock, bounds, updating="invalid")
     with pytest.raises(ValueError, match="workers"):
         differential_evolution(rosenbrock, bounds, workers=-2)
     with pytest.raises(ValueError, match="vectorized"):
