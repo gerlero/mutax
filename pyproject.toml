@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.11,<0.13"]
+requires = ["uv_build>=0.12,<0.13"]
 build-backend = "uv_build"
 
 [project]
@@ -26,17 +26,17 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "equinox>=0.12.1,<0.14",
+    "equinox>=0.12.2,<0.14",
     "jax>=0.8.1,<0.12",
     "parajax>=0.3,<0.4",
 ]
 
 [dependency-groups]
-lint = ["ruff"]
-typing = ["ty"]
+lint = ["ruff>=0.16.5,<0.17"]
+typing = ["ty>=0.0.76,<0.1"]
 test = [
     "pytest>=9,<10",
-    "pytest-cov",
+    "pytest-cov>=7,<8",
 ]
 docs = [
     "mkdocs>=1.6.1,<2",
