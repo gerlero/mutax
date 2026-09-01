@@ -27,6 +27,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "equinox>=0.12.2,<0.14",
+    "equinox>=0.13; python_version >= '3.14'",
     "jax>=0.8.1,<0.12",
     "parajax>=0.3,<0.4",
 ]
