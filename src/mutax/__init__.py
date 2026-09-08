@@ -173,7 +173,7 @@ def differential_evolution(
             raise ValueError(msg)
 
         def vmapped_func(x: jax.Array) -> jax.Array:
-            return workers(func, x)  # ty: ignore[call-top-callable,invalid-return-type]
+            return workers(func, x)  # ty: ignore[invalid-return-type]
     else:
         max_devices = None if workers == -1 else workers
         if vectorized:
